@@ -140,14 +140,14 @@ def visualize_per_year(resdf, withInflation):
             elif period_label <= 25:
                 ax.xaxis.set_major_locator(mdates.YearLocator(1))
             
-            for abbr in fund_abbrs:
+            for j, abbr in enumerate(fund_abbrs):
                 plot_df = resdf[(resdf['abbr'] == abbr) & (resdf['start_date'] >= start_date)].copy()
                 # if ky == 'annualized_roi':
                 #     plot_df = plot_df[plot_df['start_date'] <= annualized_end_date]
                 if plot_df.empty:
                     continue
                 plot_df[ky] = plot_df[ky] * 100
-                ax.plot(plot_df['start_date'], plot_df[ky], label=abbr, linewidth=1.5)
+                ax.plot(plot_df['start_date'], plot_df[ky], label=abbr, linewidth=1.5, linestyle=(j >= 11 and '-.' or (j >= 6 and ':' or '-')))
 
             plt.ylim(bottom=-15)
             ax.legend(loc=(ky == 'annualized_roi' and 'lower left' or 'upper right'), fontsize=10, frameon=False, ncols=3)
@@ -172,4 +172,4 @@ if __name__ == '__main__':
     # simulate_without_inflation()
     # simulate_with_inflation()
     visualize_per_year(read_result('simulate_without_inflation.csv'), False)
-    # visualize_per_year(read_result('simulate_with_inflation.csv'), True)
+    visualize_per_year(read_result('simulate_with_inflation.csv'), True)

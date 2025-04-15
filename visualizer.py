@@ -58,7 +58,7 @@ def per_year():
         elif 10 < period_label <= 25:
             ax.xaxis.set_major_locator(mdates.YearLocator(1))
 
-        for abbr in fund_abbrs:
+        for j, abbr in enumerate(fund_abbrs):
             plot_df = df[(df['abbr'] == abbr) & (df['date'] >= start_date)].copy()
 
             if plot_df.empty:
@@ -79,10 +79,10 @@ def per_year():
                 plot_df = plot_df[['price_change']].resample('10D').mean().interpolate(method='linear')
             
             plot_df = plot_df.reset_index()
-            ax.plot(plot_df['date'], plot_df['price_change'], label=abbr, linewidth=1.0)
+            ax.plot(plot_df['date'], plot_df['price_change'], label=abbr, linewidth=1.2, linestyle=(j >= 11 and '-.' or (j >= 6 and ':' or '-')))
         
         ax.legend(loc='upper left', fontsize=10, frameon=False, ncols=3)
-        ax.grid(True, linestyle=':', linewidth=1, color='#bfbfbf')
+        ax.grid(True, linestyle=':', linewidth=0.8, color='#bfbfbf')
         sns.despine()
 
         plt.tight_layout(rect=[0, 0.03, 1, 0.95])
@@ -176,5 +176,5 @@ def per_fund():
         plt.close(fig)
 
 if __name__ == '__main__':
-    # per_year()
-    per_fund()
+    per_year()
+    # per_fund()
