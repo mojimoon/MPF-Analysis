@@ -24,4 +24,4 @@ df['date'] = pd.to_datetime(df['date'], format='%d/%m/%Y')
 df['price'] = df['price'].astype(float)
 
 print(df.head())
-df.to_csv(os.path.join(data_path, 'processed_data.csv'), index=False)
+df.to_csv(os.path.join(data_path, 'prices.csv'), index=False)
