@@ -2,8 +2,10 @@ import os
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import pandas as pd
+import numpy as np
 import seaborn as sns
 from datetime import timedelta, datetime
+from scipy.signal import find_peaks
 
 data_path = 'data'
 output_path = 'output'
@@ -96,16 +98,6 @@ def per_fund():
     fund_abbrs = names['abbr'].unique()
 
     for abbr in fund_abbrs:
-        fig, ax = plt.subplots(figsize=(12, 6))
-        full_name = names[names['abbr'] == abbr]['name'].values[0]
-        fig.suptitle(f'{full_name} Price History', fontsize=20, fontweight='bold')
-        
-        ax.set_title(f'As of {last_date.strftime("%Y-%m-%d")}', fontsize=16, fontweight='bold')
-        ax.axhline(0, color='grey', linestyle='--', linewidth=0.8)
-        ax.set_ylabel('Price Change (%)')
-        ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
-        ax.tick_params(axis='x', rotation=45)
-
         plot_df = df[df['abbr'] == abbr].copy()
 
         if plot_df.empty:
@@ -117,7 +109,40 @@ def per_fund():
         if pd.isna(start_price):
             continue
 
+        plot_df['price_change'] = (plot_df['price'] - start_price) / start_price * 100
         diff = (last_date - actual_start_date).days
+        if diff >= 3650:
+            plot_df = plot_df.set_index('date')
+            plot_df_resampled = plot_df[['price_change']].resample('5D').mean().interpolate(method='linear').reset_index()
+        elif diff >= 7300:
+            plot_df = plot_df.set_index('date')
+            plot_df_resampled = plot_df[['price_change']].resample('15D').mean().interpolate(method='linear').reset_index()
+        else:
+            plot_df_resampled = plot_df.copy()
+
+        yext = plot_df_resampled['price_change'].max() - plot_df_resampled['price_change'].min()
+        peak_prominence = max(5, yext * 0.05)
+        trough_prominence = peak_prominence
+        peak_distance = max(30, diff // 35)
+
+        price_change = plot_df_resampled['price_change'].to_numpy()
+        if len(price_change) > peak_distance:
+            peaks, _ = find_peaks(price_change, prominence=peak_prominence, distance=peak_distance)
+            troughs, _ = find_peaks(-price_change, prominence=trough_prominence, distance=peak_distance)
+        else:
+            peaks = []
+            troughs = []
+
+        fig, ax = plt.subplots(figsize=(12, 6))
+        full_name = names[names['abbr'] == abbr]['name'].values[0]
+        fig.suptitle(f'{full_name} Price History (As of {last_date.strftime("%Y-%m-%d")})', fontsize=18, fontweight='bold')
+        
+        # ax.set_title(f'As of {last_date.strftime("%Y-%m-%d")}', fontsize=16, fontweight='bold')
+        ax.axhline(0, color='grey', linestyle='--', linewidth=1.0)
+        ax.set_ylabel('Price Change (%)')
+        ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
+        ax.tick_params(axis='x', rotation=45)
+
         if diff < 732:
             ax.xaxis.set_major_locator(mdates.MonthLocator(interval=1))
         elif diff < 1828:
@@ -128,17 +153,20 @@ def per_fund():
             ax.xaxis.set_major_locator(mdates.YearLocator(1))
         else:
             ax.xaxis.set_major_locator(mdates.YearLocator(2))
-
-        plot_df['price_change'] = (plot_df['price'] - start_price) / start_price * 100
-        plot_df = plot_df.set_index('date')
-
-        if diff >= 3650:
-            plot_df = plot_df[['price_change']].resample('5D').mean().interpolate(method='linear')
-        elif diff >= 7300:
-            plot_df = plot_df[['price_change']].resample('15D').mean().interpolate(method='linear')
         
-        plot_df = plot_df.reset_index()
-        ax.plot(plot_df['date'], plot_df['price_change'], linewidth=1.5)
+        ax.plot(plot_df_resampled['date'], plot_df_resampled['price_change'], linewidth=1.5, zorder=1, color='green')
+
+        for idx in peaks:
+            d, pc = plot_df_resampled['date'].iloc[idx], plot_df_resampled['price_change'].iloc[idx]
+            ax.plot(d, pc, 'ro', markersize=5, zorder=2)
+            ax.annotate(f"{d.strftime('%Y-%m-%d')}\n{1 + pc / 100:.4f}", (d, pc),
+                        textcoords="offset points", xytext=(0, 10), ha='center', fontsize=10, color='red')
+    
+        for idx in troughs:
+            d, pc = plot_df_resampled['date'].iloc[idx], plot_df_resampled['price_change'].iloc[idx]
+            ax.plot(d, pc, 'bo', markersize=5, zorder=2)
+            ax.annotate(f"{d.strftime('%Y-%m-%d')}\n{1 + pc / 100:.4f}", (d, pc),
+                        textcoords="offset points", xytext=(0, -25), ha='center', fontsize=10, color='blue')
         
         ax.grid(True, linestyle=':', linewidth=1, color='#bfbfbf')
         sns.despine()
