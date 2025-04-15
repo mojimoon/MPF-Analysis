@@ -3,7 +3,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import seaborn as sns
-from datetime import datetime
+from datetime import datetime, timedelta
 
 data_path = 'data'
 
@@ -118,7 +118,10 @@ def visualize_per_year(resdf, withInflation):
 
     for ky, label in vals:
         for i in range(len(period_years)):
+            if ky == 'annualized_roi' and i == 0:
+                continue # too short period makes annualized roi very high, meaningless
             start_date = start_dates[i]
+            annualized_end_date = last_date - timedelta(days=360)
             period_label = period_years[i]
             fig, ax = plt.subplots(figsize=(14, 7))
             fig.suptitle(f'Sun Life MPF {label} ({period_label} Year{period_label > 1 and "s" or ""})', fontsize=20, fontweight='bold')
@@ -140,12 +143,14 @@ def visualize_per_year(resdf, withInflation):
             
             for abbr in fund_abbrs:
                 plot_df = resdf[(resdf['abbr'] == abbr) & (resdf['start_date'] >= start_date)].copy()
+                if ky == 'annualized_roi':
+                    plot_df = plot_df[plot_df['start_date'] <= annualized_end_date]
                 if plot_df.empty:
                     continue
                 plot_df[ky] = plot_df[ky] * 100
                 ax.plot(plot_df['start_date'], plot_df[ky], label=abbr, linewidth=1.5)
 
-            ax.legend(loc='upper right', fontsize=10, frameon=False, ncols=3)
+            ax.legend(loc='lower left', fontsize=10, frameon=False, ncols=3)
             ax.grid(True, linestyle=':', linewidth=1, color='#bfbfbf')
             sns.despine()
 
