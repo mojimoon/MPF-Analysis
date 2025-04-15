@@ -1,41 +1,42 @@
 import os
 import pandas as pd
+import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
+import seaborn as sns
 from datetime import datetime
 
 data_path = 'data'
-# output_path = 'output/simulator'
 
-# if not os.path.exists(output_path):
-#     os.makedirs(output_path)
-
-prices = pd.read_csv(os.path.join(data_path, 'prices.csv'))
 names = pd.read_csv(os.path.join(data_path, 'names.csv'))
-inflation = pd.read_csv(os.path.join(data_path, 'inflation.csv'))
+per_year_path = os.path.join('output', 'simulation', 'history')
+per_fund_path = os.path.join('output', 'simulation', 'fund')
 
-df = pd.merge(prices, names[['name', 'abbr']], on='name', how='left')
-df['date'] = pd.to_datetime(df['date'])
-df.drop(columns=['name'], inplace=True)
+def prepare_data():
+    prices = pd.read_csv(os.path.join(data_path, 'prices.csv'))
+    df = pd.merge(prices, names[['name', 'abbr']], on='name', how='left')
+    df['date'] = pd.to_datetime(df['date'])
+    df.drop(columns=['name'], inplace=True)
 
-df_hkbond = df[df['abbr'] == 'HKBOND']
-months = df_hkbond['date'].dt.to_period('M').unique()
-month_day1 = []
-for month in months:
-    first_trading_day = df_hkbond[df_hkbond['date'].dt.to_period('M') == month]['date'].min()
-    month_day1.append(first_trading_day)
-month_day1 = month_day1[1:]
+    df_hkbond = df[df['abbr'] == 'HKBOND']
+    months = df_hkbond['date'].dt.to_period('M').unique()
+    month_day1 = []
+    for month in months:
+        first_trading_day = df_hkbond[df_hkbond['date'].dt.to_period('M') == month]['date'].min()
+        month_day1.append(first_trading_day)
+    month_day1 = month_day1[1:]
+    return df, month_day1
 
-
-# inflation['nominal_base_2000'] = 1.0
-# for i in range(1, len(inflation)):
-#     inflation.iloc[i, 2] = inflation.iloc[i - 1, 2] * (1 + inflation.iloc[i, 1] / 100)
-inflation['nominal_base_today'] = 1.0
-for i in range(len(inflation) - 2, -1, -1):
-    inflation.iloc[i, 2] = inflation.iloc[i + 1, 2] / (1 + inflation.iloc[i, 1] / 100)
-inflation_start_year = inflation.iloc[0, 0]
-# inflation['date'] = pd.to_datetime(inflation['year'].astype(str) + '-01-01')
-# inflation.drop(columns=['year'], inplace=True)
+def prepare_inflation():
+    inflation = pd.read_csv(os.path.join(data_path, 'inflation.csv'))
+    inflation['nominal_base_today'] = 1.0
+    for i in range(len(inflation) - 2, -1, -1):
+        inflation.iloc[i, 2] = inflation.iloc[i + 1, 2] / (1 + inflation.iloc[i, 1] / 100)
+    inflation_start_year = inflation.iloc[0, 0]
+    return inflation, inflation_start_year
 
 def simulate_without_inflation():
+    df, month_day1 = prepare_data()
+
     results = pd.DataFrame(columns=['abbr', 'start_date', 'invested', 'current'])
     fund_abbrs = names['abbr'].unique()
     today = df.iloc[-1, 0]
@@ -68,6 +69,9 @@ def simulate_without_inflation():
     return results
 
 def simulate_with_inflation():
+    df, month_day1 = prepare_data()
+    inflation, inflation_start_year = prepare_inflation()
+
     results = pd.DataFrame(columns=['abbr', 'start_date', 'invested', 'current'])
     fund_abbrs = names['abbr'].unique()
     today = df.iloc[-1, 0]
@@ -98,6 +102,68 @@ def simulate_with_inflation():
     results.to_csv(os.path.join(data_path, 'simulate_with_inflation.csv'), index=False)
     return results
 
+def visualize_per_year(resdf, withInflation):
+    if not os.path.exists(per_year_path):
+        os.makedirs(per_year_path)
+    
+    sns.set_theme(style="darkgrid")
+
+    last_date = resdf.iloc[-1, 1]
+    period_years = [1, 3, 5, 10, 25]
+    start_dates = [datetime(year=last_date.year - period, month=1, day=1) for period in period_years]
+    fund_abbrs = names['abbr'].unique()
+
+    # vals = [('roi', 'Return over Investment (%)'), ('annualized_roi', 'Annualized Return over Investment (%)')]
+    vals = [('roi', 'Return over Investment (%)')]
+
+    for ky, label in vals:
+        for i in range(len(period_years)):
+            start_date = start_dates[i]
+            period_label = period_years[i]
+            fig, ax = plt.subplots(figsize=(14, 7))
+            fig.suptitle(f'Sun Life MPF Return over {period_label} Year{period_label > 1 and "s" or ""}', fontsize=20, fontweight='bold')
+            ax.set_title(f'{start_date.strftime("%Y-%m-%d")} - {last_date.strftime("%Y-%m-%d")} {withInflation and "(considering inflation)" or ""}', fontsize=16, fontweight='bold')
+            ax.axhline(0, color='grey', linestyle='--', linewidth=1.0)
+            ax.set_ylabel(label)
+            ax.set_xlabel('Investment Start Date')
+            ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
+            ax.tick_params(axis='x', rotation=45)
+
+            if period_label <= 2:
+                ax.xaxis.set_major_locator(mdates.MonthLocator(interval=1))
+            elif period_label <= 5:
+                ax.xaxis.set_major_locator(mdates.MonthLocator(interval=3))
+            elif period_label <= 10:
+                ax.xaxis.set_major_locator(mdates.MonthLocator(interval=6))
+            elif period_label <= 25:
+                ax.xaxis.set_major_locator(mdates.YearLocator(1))
+            
+            for abbr in fund_abbrs:
+                plot_df = resdf[(resdf['abbr'] == abbr) & (resdf['start_date'] >= start_date)].copy()
+                if plot_df.empty:
+                    continue
+                plot_df[ky] = plot_df[ky] * 100
+                ax.plot(plot_df['start_date'], plot_df[ky], label=abbr, linewidth=1.5)
+
+            ax.legend(loc='upper left', fontsize=10, frameon=False, ncols=3)
+            ax.grid(True, linestyle=':', linewidth=1, color='#bfbfbf')
+            sns.despine()
+
+            plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+            plt.savefig(os.path.join(per_year_path, f'{ky}_{period_label}.png'), bbox_inches='tight')
+            plt.close(fig)
+
+def visualize_per_fund(resdf, withInflation):
+    pass
+
+def read_result(path):
+    df = pd.read_csv(os.path.join(data_path, path))
+    df['start_date'] = pd.to_datetime(df['start_date'])
+    df['roi'] = df['roi'].astype(float)
+    df['annualized_roi'] = df['annualized_roi'].astype(float)
+    return df
+
 if __name__ == '__main__':
     # simulate_without_inflation()
-    simulate_with_inflation()
+    # simulate_with_inflation()
+    visualize_per_year(read_result('simulate_without_inflation.csv'), False)
