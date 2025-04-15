@@ -80,7 +80,7 @@ def per_year():
             ax.plot(plot_df['date'], plot_df['price_change'], label=abbr, linewidth=1.0)
         
         ax.legend(loc='upper left', fontsize=10, frameon=False, ncols=3)
-        ax.grid(True, linestyle=':', linewidth=1)
+        ax.grid(True, linestyle=':', linewidth=1, color='#bfbfbf')
         sns.despine()
 
         plt.tight_layout(rect=[0, 0.03, 1, 0.95])
@@ -140,7 +140,7 @@ def per_fund():
         plot_df = plot_df.reset_index()
         ax.plot(plot_df['date'], plot_df['price_change'], linewidth=1.5)
         
-        ax.grid(True, linestyle=':', linewidth=1)
+        ax.grid(True, linestyle=':', linewidth=1, color='#bfbfbf')
         sns.despine()
 
         plt.tight_layout(rect=[0, 0.03, 1, 0.95])
