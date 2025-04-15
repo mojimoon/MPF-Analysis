@@ -113,18 +113,18 @@ def visualize_per_year(resdf, withInflation):
     start_dates = [datetime(year=last_date.year - period, month=1, day=1) for period in period_years]
     fund_abbrs = names['abbr'].unique()
 
-    # vals = [('roi', 'Return over Investment (%)'), ('annualized_roi', 'Annualized Return over Investment (%)')]
-    vals = [('roi', 'Return over Investment (%)')]
+    # vals = [('roi', 'Return over Investment')]
+    vals = [('annualized_roi', 'Annualized Return over Investment')]
 
     for ky, label in vals:
         for i in range(len(period_years)):
             start_date = start_dates[i]
             period_label = period_years[i]
             fig, ax = plt.subplots(figsize=(14, 7))
-            fig.suptitle(f'Sun Life MPF Return over {period_label} Year{period_label > 1 and "s" or ""}', fontsize=20, fontweight='bold')
+            fig.suptitle(f'Sun Life MPF {label} ({period_label} Year{period_label > 1 and "s" or ""})', fontsize=20, fontweight='bold')
             ax.set_title(f'{start_date.strftime("%Y-%m-%d")} - {last_date.strftime("%Y-%m-%d")} {withInflation and "(considering inflation)" or ""}', fontsize=16, fontweight='bold')
             ax.axhline(0, color='grey', linestyle='--', linewidth=1.0)
-            ax.set_ylabel(label)
+            ax.set_ylabel(f'{label} (%)')
             ax.set_xlabel('Investment Start Date')
             ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
             ax.tick_params(axis='x', rotation=45)
@@ -145,7 +145,7 @@ def visualize_per_year(resdf, withInflation):
                 plot_df[ky] = plot_df[ky] * 100
                 ax.plot(plot_df['start_date'], plot_df[ky], label=abbr, linewidth=1.5)
 
-            ax.legend(loc='upper left', fontsize=10, frameon=False, ncols=3)
+            ax.legend(loc='upper right', fontsize=10, frameon=False, ncols=3)
             ax.grid(True, linestyle=':', linewidth=1, color='#bfbfbf')
             sns.despine()
 
