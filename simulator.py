@@ -113,15 +113,14 @@ def visualize_per_year(resdf, withInflation):
     start_dates = [datetime(year=last_date.year - period, month=1, day=1) for period in period_years]
     fund_abbrs = names['abbr'].unique()
 
-    # vals = [('roi', 'Return over Investment')]
-    vals = [('annualized_roi', 'Annualized Return over Investment')]
+    vals = [('roi', 'Return over Investment'), ('annualized_roi', 'Annualized Return over Investment')]
 
     for ky, label in vals:
         for i in range(len(period_years)):
             if ky == 'annualized_roi' and i == 0:
                 continue # too short period makes annualized roi very high, meaningless
             start_date = start_dates[i]
-            annualized_end_date = last_date - timedelta(days=360)
+            # annualized_end_date = last_date - timedelta(days=360)
             period_label = period_years[i]
             fig, ax = plt.subplots(figsize=(14, 7))
             fig.suptitle(f'Sun Life MPF {label} ({period_label} Year{period_label > 1 and "s" or ""})', fontsize=20, fontweight='bold')
@@ -143,19 +142,20 @@ def visualize_per_year(resdf, withInflation):
             
             for abbr in fund_abbrs:
                 plot_df = resdf[(resdf['abbr'] == abbr) & (resdf['start_date'] >= start_date)].copy()
-                if ky == 'annualized_roi':
-                    plot_df = plot_df[plot_df['start_date'] <= annualized_end_date]
+                # if ky == 'annualized_roi':
+                #     plot_df = plot_df[plot_df['start_date'] <= annualized_end_date]
                 if plot_df.empty:
                     continue
                 plot_df[ky] = plot_df[ky] * 100
                 ax.plot(plot_df['start_date'], plot_df[ky], label=abbr, linewidth=1.5)
 
-            ax.legend(loc='lower left', fontsize=10, frameon=False, ncols=3)
+            plt.ylim(bottom=-15)
+            ax.legend(loc=(ky == 'annualized_roi' and 'lower left' or 'upper right'), fontsize=10, frameon=False, ncols=3)
             ax.grid(True, linestyle=':', linewidth=1, color='#bfbfbf')
             sns.despine()
 
             plt.tight_layout(rect=[0, 0.03, 1, 0.95])
-            plt.savefig(os.path.join(per_year_path, f'{ky}_{period_label}.png'), bbox_inches='tight')
+            plt.savefig(os.path.join(per_year_path, f'{withInflation and "inflation_" or "noinflation_"}{ky}_{period_label}.png'), bbox_inches='tight')
             plt.close(fig)
 
 def visualize_per_fund(resdf, withInflation):
@@ -172,3 +172,4 @@ if __name__ == '__main__':
     # simulate_without_inflation()
     # simulate_with_inflation()
     visualize_per_year(read_result('simulate_without_inflation.csv'), False)
+    # visualize_per_year(read_result('simulate_with_inflation.csv'), True)
